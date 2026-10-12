@@ -1,6 +1,8 @@
 {% load app_tags %}
 
-{% include "app/components/messages/messages_oob.html" %}
+{% if not skip_messages %}
+  {% include "app/components/messages/messages_oob.html" %}
+{% endif %}
 
 <div class="flex items-center justify-center space-x-4 pb-3">
   <button class="p-1 bg-gray-700 hover:bg-gray-600 rounded-md transition-colors cursor-pointer disabled:opacity-50 disabled:hover:bg-gray-700 disabled:cursor-not-allowed"
@@ -36,3 +38,6 @@
   </button>
 </div>
 {% include "app/components/progress_bar.html" with media=media user=user %}
+{% if up_next_oob %}
+  {% include "app/components/up_next_card.html" with entry=up_next_oob.entry tv_id=up_next_oob.tv_id oob=True %}
+{% endif %}
