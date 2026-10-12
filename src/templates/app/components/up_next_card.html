@@ -1,0 +1,48 @@
+{% load app_tags %}
+
+{% if entry %}
+  <div id="up-next-tv-{{ entry.tv_id }}"
+       {% if oob %}hx-swap-oob="true"{% endif %}
+       class="up-next-card flex w-72 shrink-0 snap-start overflow-hidden rounded-lg bg-[#2a2f35] shadow-lg">
+    <a href="{{ entry.season.item|media_url }}" class="w-20 shrink-0">
+      <img alt="{{ entry.season }}"
+           class="lazyload h-full w-full aspect-2/3 {% if entry.season.item.image != IMG_NONE %}object-cover{% endif %}"
+           data-src="{{ entry.season.item.image }}"
+           src="{{ IMG_NONE }}">
+    </a>
+    <div class="flex min-w-0 flex-1 flex-col justify-between gap-2 p-3">
+      <div class="min-w-0 space-y-1">
+        <a href="{{ entry.season.item|media_url }}"
+           class="line-clamp-1 text-sm font-semibold text-white transition duration-300 hover:text-indigo-400"
+           title="{{ entry.season.item.title }}">{{ entry.season.item.title }}</a>
+        <p class="flex min-w-0 items-baseline gap-1.5 text-sm">
+          <span class="shrink-0 font-medium text-indigo-400">S{{ entry.season.item.season_number|stringformat:"02d" }}E{{ entry.episode_number|stringformat:"02d" }}</span>
+          {% if entry.episode_title %}
+            <span class="truncate text-gray-300" title="{{ entry.episode_title }}">{{ entry.episode_title }}</span>
+          {% endif %}
+        </p>
+        <p class="truncate text-xs text-gray-400">
+          {% if entry.air_date %}Aired {{ entry.air_date|date:user.date_format }}{% endif %}
+          {% if entry.remaining > 1 %}
+            {% if entry.air_date %}•{% endif %}
+            {{ entry.remaining }} left
+          {% endif %}
+        </p>
+      </div>
+      <button type="button"
+              class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+              title="Mark S{{ entry.season.item.season_number|stringformat:"02d" }}E{{ entry.episode_number|stringformat:"02d" }} as watched"
+              hx-post="{% url 'up_next_watch' entry.season.id %}"
+              hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+              hx-vals='{"episode_number": "{{ entry.episode_number }}"}'
+              hx-target="#up-next-tv-{{ entry.tv_id }}"
+              hx-swap="outerHTML"
+              hx-disabled-elt="this">
+        {% include "app/icons/checkmark.svg" with classes="h-3.5 w-3.5" %}
+        Mark watched
+      </button>
+    </div>
+  </div>
+{% elif oob %}
+  <div id="up-next-tv-{{ tv_id }}" hx-swap-oob="delete"></div>
+{% endif %}

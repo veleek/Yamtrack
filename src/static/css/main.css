@@ -331,6 +331,9 @@
   .right-0 {
     right: calc(var(--spacing) * 0);
   }
+  .right-1 {
+    right: calc(var(--spacing) * 1);
+  }
   .right-1\/2 {
     right: calc(1/2 * 100%);
   }
@@ -357,6 +360,9 @@
   }
   .left-0 {
     left: calc(var(--spacing) * 0);
+  }
+  .left-1 {
+    left: calc(var(--spacing) * 1);
   }
   .left-1\/2 {
     left: calc(1/2 * 100%);
@@ -622,6 +628,9 @@
   .h-8 {
     height: calc(var(--spacing) * 8);
   }
+  .h-9 {
+    height: calc(var(--spacing) * 9);
+  }
   .h-10 {
     height: calc(var(--spacing) * 10);
   }
@@ -753,6 +762,9 @@
   }
   .w-64 {
     width: calc(var(--spacing) * 64);
+  }
+  .w-72 {
+    width: calc(var(--spacing) * 72);
   }
   .w-85 {
     width: calc(var(--spacing) * 85);
@@ -894,6 +906,12 @@
   }
   .resize-none {
     resize: none;
+  }
+  .snap-x {
+    scroll-snap-type: x var(--tw-scroll-snap-strictness);
+  }
+  .snap-start {
+    scroll-snap-align: start;
   }
   .list-inside {
     list-style-position: inside;
@@ -1304,6 +1322,9 @@
   }
   .bg-\[\#39404b\] {
     background-color: #39404b;
+  }
+  .bg-\[\#39404b\]\/95 {
+    background-color: color-mix(in oklab, #39404b 95%, transparent);
   }
   .bg-\[\#212529\] {
     background-color: #212529;
@@ -1721,6 +1742,9 @@
   }
   .pr-12 {
     padding-right: calc(var(--spacing) * 12);
+  }
+  .pb-1 {
+    padding-bottom: calc(var(--spacing) * 1);
   }
   .pb-3 {
     padding-bottom: calc(var(--spacing) * 3);
@@ -2986,6 +3010,11 @@
       display: none;
     }
   }
+  .pointer-fine\:flex {
+    @media (pointer: fine) {
+      display: flex;
+    }
+  }
   .hover-tap\:opacity-100 {
     &:hover {
       opacity: 100%;
@@ -3009,6 +3038,11 @@
   .\[\&\:\:-webkit-outer-spin-button\]\:appearance-none {
     &::-webkit-outer-spin-button {
       appearance: none;
+    }
+  }
+  .\[\&\:not\(\:has\(\.up-next-card\)\)\]\:hidden {
+    &:not(:has(.up-next-card)) {
+      display: none;
     }
   }
 }
@@ -3343,6 +3377,11 @@
   syntax: "*";
   inherits: false;
 }
+@property --tw-scroll-snap-strictness {
+  syntax: "*";
+  inherits: false;
+  initial-value: proximity;
+}
 @property --tw-space-y-reverse {
   syntax: "*";
   inherits: false;
@@ -3567,6 +3606,7 @@
       --tw-rotate-z: initial;
       --tw-skew-x: initial;
       --tw-skew-y: initial;
+      --tw-scroll-snap-strictness: proximity;
       --tw-space-y-reverse: 0;
       --tw-space-x-reverse: 0;
       --tw-divide-y-reverse: 0;
