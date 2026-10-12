@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load app_tags %}
+
+{% block extra_head %}
+  {{ form.media.css }}
+{% endblock extra_head %}
+
+{% block title %}
+  {{ custom_list }} - Yamtrack
+{% endblock title %}
+
+{% block content %}
+  {% include "lists/components/list_header.html" %}
+
+  <div class="space-y-8">
+    <div class="flex justify-end">{% include "app/components/home_controls.html" with base_url=section_url %}</div>
+
+    <div class="space-y-15">
+      {% for section in home_sections %}
+        {% include "app/components/home_section.html" with section=section %}
+      {% endfor %}
+    </div>
+  </div>
+{% endblock content %}
+
+{% block js %}
+  {{ form.media.js }}
+{% endblock js %}

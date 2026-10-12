@@ -80,19 +80,12 @@ def home(request):
             },
         )
 
-    home_sections = [
-        home_helpers.build_home_section(
-            section_key,
-            home_helpers.get_home_media_types(
-                request,
-                sort_by,
-                section_key,
-                items_limit,
-                hide_unreleased=hide_unreleased,
-            ),
-        )
-        for section_key in (Status.IN_PROGRESS.value, Status.PLANNING.value)
-    ]
+    home_sections = home_helpers.build_home_sections(
+        request,
+        sort_by,
+        items_limit,
+        hide_unreleased=hide_unreleased,
+    )
 
     up_next = home_helpers.get_up_next(request.user)
 
@@ -106,6 +99,7 @@ def home(request):
         "sort_choices": HomeSortChoices.choices,
         "hide_unreleased": hide_unreleased,
         "items_limit": items_limit,
+        "section_url": reverse("home"),
     }
     return render(request, "app/home.html", context)
 

@@ -2,7 +2,15 @@ from django.conf import settings
 from django.db import models
 from django.db.models import Prefetch, Q
 
-from app.models import Item
+from app.models import Item, MediaTypes
+
+# Item types that belong to one show; any of them in a list puts the show's
+# seasons on the list's tracker.
+SHOW_MEDIA_TYPES = (
+    MediaTypes.TV.value,
+    MediaTypes.SEASON.value,
+    MediaTypes.EPISODE.value,
+)
 
 
 class CustomListManager(models.Manager):
@@ -25,6 +33,14 @@ class CustomListManager(models.Manager):
                 ),
             )
             .distinct()
+        )
+
+    def get_pinned_lists(self, user):
+        """Return the lists the user pinned to the sidebar and can still view."""
+        return (
+            self.filter(Q(owner=user) | Q(collaborators=user), pinned_by=user)
+            .distinct()
+            .order_by("name")
         )
 
     def get_user_lists_with_item(self, user, item):
@@ -62,6 +78,16 @@ class CustomList(models.Model):
         blank=True,
         through="CustomListItem",
     )
+    tracker_view = models.BooleanField(
+        default=False,
+        verbose_name="Show as tracker",
+        help_text=("Open this list with the Home tracker view, limited to its items."),
+    )
+    pinned_by = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="pinned_lists",
+        blank=True,
+    )
 
     objects = CustomListManager()
 
@@ -85,6 +111,30 @@ class CustomList(models.Model):
     def user_can_delete(self, user):
         """Check if the user can delete the list."""
         return self.owner == user
+
+    def is_pinned_by(self, user):
+        """Check if the user pinned the list to the sidebar."""
+        return self.pinned_by.filter(id=user.id).exists()
+
+    def tracker_items(self):
+        """Return the items whose tracked media belongs on this list's tracker.
+
+        Items match directly, and a TV show, season or episode in the list also
+        matches the show and all of its seasons, since Home tracks seasons.
+        """
+        query = Q(id__in=self.items.values("id"))
+        shows = (
+            self.items.filter(media_type__in=SHOW_MEDIA_TYPES)
+            .values_list("source", "media_id")
+            .distinct()
+        )
+        for source, media_id in shows:
+            query |= Q(
+                source=source,
+                media_id=media_id,
+                media_type__in=[MediaTypes.TV.value, MediaTypes.SEASON.value],
+            )
+        return Item.objects.filter(query)
 
     @property
     def image(self):

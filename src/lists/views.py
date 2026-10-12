@@ -5,14 +5,21 @@ from django.core.paginator import Paginator
 from django.db.models import Count, F, OuterRef, Q, Subquery
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
 from app import helpers
-from app.models import Item, MediaManager, MediaTypes
+from app import home as home_helpers
+from app.models import Item, MediaManager, MediaTypes, Status
 from app.providers import services
 from lists.forms import CustomListForm
 from lists.models import CustomList, CustomListItem
-from users.models import ListDetailSortChoices, ListSortChoices, MediaStatusChoices
+from users.models import (
+    HomeSortChoices,
+    ListDetailSortChoices,
+    ListSortChoices,
+    MediaStatusChoices,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +105,9 @@ def list_detail(request, list_id):
     if not custom_list.user_can_view(request.user):
         msg = "List not found"
         raise Http404(msg)
+
+    if custom_list.tracker_view and request.GET.get("view", "tracker") == "tracker":
+        return list_tracker(request, custom_list)
 
     # Get and process request parameters
     params = {
@@ -195,12 +205,93 @@ def list_detail(request, list_id):
                 "media_types": MediaTypes.values,
                 "items_count": paginator.count,
                 "collaborators_count": custom_list.collaborators.count() + 1,
+                "is_pinned": custom_list.is_pinned_by(request.user),
+                "current_view": "items",
             },
         )
         return render(request, "lists/list_detail.html", context)
 
     # HTMX partial response
     return render(request, "lists/components/media_grid.html", context)
+
+
+def list_tracker(request, custom_list):
+    """Render a list with the Home tracker view, limited to the list's items.
+
+    Sorting and hiding unreleased media share the user's Home preferences.
+    """
+    sort_by = request.user.update_preference("home_sort", request.GET.get("sort"))
+    media_type_to_load = request.GET.get("load_media_type")
+    section_to_load = request.GET.get("load_status", Status.IN_PROGRESS.value)
+    hide_unreleased_param = request.GET.get("hide_unreleased")
+    hide_unreleased = request.user.update_preference(
+        "home_hide_unreleased",
+        None if hide_unreleased_param is None else hide_unreleased_param == "true",
+    )
+    items_limit = 14
+    tracker_items = custom_list.tracker_items()
+
+    # HTMX request to load the rest of one media type in a section
+    if request.headers.get("HX-Request") and media_type_to_load:
+        list_by_type = home_helpers.get_home_media_types(
+            request,
+            sort_by,
+            section_to_load,
+            items_limit,
+            media_type_to_load,
+            hide_unreleased=hide_unreleased,
+            items=tracker_items,
+        )
+        return render(
+            request,
+            "app/components/home_grid.html",
+            {
+                "media_list": list_by_type.get(
+                    media_type_to_load,
+                    {"items": [], "total": 0},
+                ),
+                "home_status": section_to_load,
+            },
+        )
+
+    context = {
+        "custom_list": custom_list,
+        "form": CustomListForm(instance=custom_list),
+        "items_count": custom_list.items.count(),
+        "collaborators_count": custom_list.collaborators.count() + 1,
+        "is_pinned": custom_list.is_pinned_by(request.user),
+        "current_view": "tracker",
+        "home_sections": home_helpers.build_home_sections(
+            request,
+            sort_by,
+            items_limit,
+            hide_unreleased=hide_unreleased,
+            items=tracker_items,
+        ),
+        "current_sort": sort_by,
+        "sort_choices": HomeSortChoices.choices,
+        "hide_unreleased": hide_unreleased,
+        "items_limit": items_limit,
+        "section_url": reverse("list_detail", args=[custom_list.id]),
+    }
+    return render(request, "lists/list_tracker.html", context)
+
+
+@require_POST
+def pin_toggle(request, list_id):
+    """Pin or unpin a list in the user's sidebar."""
+    custom_list = get_object_or_404(CustomList, id=list_id)
+    if not custom_list.user_can_view(request.user):
+        msg = "List not found"
+        raise Http404(msg)
+
+    if custom_list.is_pinned_by(request.user):
+        custom_list.pinned_by.remove(request.user)
+        logger.info("%s unpinned by %s.", custom_list, request.user)
+    else:
+        custom_list.pinned_by.add(request.user)
+        logger.info("%s pinned by %s.", custom_list, request.user)
+    return helpers.redirect_back(request)
 
 
 @require_POST
