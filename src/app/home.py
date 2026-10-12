@@ -23,6 +23,34 @@ def build_home_section(key, media_types):
     }
 
 
+def build_home_sections(
+    request,
+    sort_by,
+    items_limit,
+    *,
+    hide_unreleased=False,
+    items=None,
+):
+    """Build the in-progress and planning sections shown on Home.
+
+    ``items`` restricts the sections to those Items, for a list's tracker view.
+    """
+    return [
+        build_home_section(
+            section_key,
+            get_home_media_types(
+                request,
+                sort_by,
+                section_key,
+                items_limit,
+                hide_unreleased=hide_unreleased,
+                items=items,
+            ),
+        )
+        for section_key in (Status.IN_PROGRESS.value, Status.PLANNING.value)
+    ]
+
+
 def is_active_in_progress_media(media):
     """Return True when media still has released backlog."""
     if not _is_incoming_media(media):
@@ -39,6 +67,7 @@ def get_home_media_types(
     specific_media_type=None,
     *,
     hide_unreleased=False,
+    items=None,
 ):
     """Return media types for a home section, or one type's load-more page."""
     media_types = BasicMedia.objects.get_home_status(
@@ -47,6 +76,7 @@ def get_home_media_types(
         sort_by=sort_by,
         items_limit=None if hide_unreleased else items_limit,
         specific_media_type=specific_media_type,
+        items=items,
     )
 
     if not hide_unreleased:
