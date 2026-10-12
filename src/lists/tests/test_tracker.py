@@ -3,8 +3,10 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from app.models import (
+    TV,
     Anime,
     Item,
     MediaTypes,
@@ -13,6 +15,7 @@ from app.models import (
     Sources,
     Status,
 )
+from events.models import Event
 from lists.forms import CustomListForm
 from lists.models import CustomList, CustomListItem
 
@@ -164,6 +167,41 @@ class ListTrackerViewTests(ListTrackerTestBase):
         )
         self.assertContains(response, "Listed Show")
         self.assertNotContains(response, "Unlisted Anime")
+
+    def test_tracker_view_up_next_limited_to_list(self):
+        """Up next only shows shows in the list."""
+        other_season_item = Item.objects.create(
+            media_id="999",
+            source=Sources.TMDB.value,
+            media_type=MediaTypes.SEASON.value,
+            title="Unlisted Show",
+            season_number=1,
+        )
+        Season.objects.create(
+            item=other_season_item,
+            user=self.user,
+            status=Status.IN_PROGRESS.value,
+        )
+        released = timezone.now() - timezone.timedelta(days=1)
+        for season_item in (self.season_item, other_season_item):
+            Event.objects.create(
+                item=season_item,
+                content_number=1,
+                datetime=released,
+            )
+
+        home_response = self.client.get(reverse("home"))
+        response = self.client.get(reverse("list_detail", args=[self.custom_list.id]))
+
+        self.assertEqual(len(home_response.context["up_next"]), 2)
+        self.assertEqual(
+            [entry["season"] for entry in response.context["up_next"]],
+            [self.season],
+        )
+        self.assertEqual(
+            response.context["up_next"][0]["tv_id"],
+            TV.objects.get(user=self.user, item=self.tv_item).id,
+        )
 
     def test_items_view_shows_grid(self):
         """The items view still renders the regular list grid."""

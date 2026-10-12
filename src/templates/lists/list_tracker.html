@@ -16,6 +16,9 @@
     <div class="flex justify-end">{% include "app/components/home_controls.html" with base_url=section_url %}</div>
 
     <div class="space-y-15">
+      {% if up_next %}
+        {% include "app/components/up_next.html" %}
+      {% endif %}
       {% for section in home_sections %}
         {% include "app/components/home_section.html" with section=section %}
       {% endfor %}

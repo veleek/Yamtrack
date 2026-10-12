@@ -10,7 +10,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from app import helpers
 from app import home as home_helpers
-from app.models import Item, MediaManager, MediaTypes, Status
+from app.models import TV, Item, MediaManager, MediaTypes, Status
 from app.providers import services
 from lists.forms import CustomListForm
 from lists.models import CustomList, CustomListItem
@@ -254,9 +254,21 @@ def list_tracker(request, custom_list):
             },
         )
 
+    up_next = home_helpers.get_up_next(
+        request.user,
+        tv_ids=set(
+            TV.objects.filter(user=request.user, item__in=tracker_items).values_list(
+                "id",
+                flat=True,
+            ),
+        ),
+    )
+
     context = {
         "custom_list": custom_list,
         "form": CustomListForm(instance=custom_list),
+        "up_next": up_next[: home_helpers.UP_NEXT_LIMIT],
+        "up_next_total": len(up_next),
         "items_count": custom_list.items.count(),
         "collaborators_count": custom_list.collaborators.count() + 1,
         "is_pinned": custom_list.is_pinned_by(request.user),
