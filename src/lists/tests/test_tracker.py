@@ -198,6 +198,7 @@ class ListTrackerViewTests(ListTrackerTestBase):
             [entry["season"] for entry in response.context["up_next"]],
             [self.season],
         )
+        self.assertIn("episode_title", response.context["up_next"][0])
         self.assertEqual(
             response.context["up_next"][0]["tv_id"],
             TV.objects.get(user=self.user, item=self.tv_item).id,

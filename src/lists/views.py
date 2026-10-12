@@ -267,7 +267,9 @@ def list_tracker(request, custom_list):
     context = {
         "custom_list": custom_list,
         "form": CustomListForm(instance=custom_list),
-        "up_next": up_next[: home_helpers.UP_NEXT_LIMIT],
+        "up_next": home_helpers.add_up_next_episode_titles(
+            up_next[: home_helpers.UP_NEXT_LIMIT],
+        ),
         "up_next_total": len(up_next),
         "items_count": custom_list.items.count(),
         "collaborators_count": custom_list.collaborators.count() + 1,
