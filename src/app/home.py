@@ -1,8 +1,14 @@
+import logging
+
+import requests
 from django.utils import timezone
 from django.utils.text import slugify
 
-from app.models import BasicMedia, MediaTypes, Status
+from app.models import BasicMedia, MediaTypes, Sources, Status
+from app.providers import services
 from events.models import SentinelDatetime
+
+logger = logging.getLogger(__name__)
 
 UP_NEXT_LIMIT = 12
 
@@ -165,3 +171,40 @@ def _build_up_next_entry(season, now, min_datetime):
         "air_date": None if air_date <= min_datetime else air_date,
         "remaining": len(released),
     }
+
+
+def add_up_next_episode_titles(entries):
+    """Annotate Up next entries with their episode titles.
+
+    Titles come from the season metadata, which is usually cached because
+    watching an episode fetches it. A provider failure only hides the title.
+    """
+    for entry in entries:
+        entry["episode_title"] = _get_episode_title(
+            entry["season"],
+            entry["episode_number"],
+        )
+    return entries
+
+
+def _get_episode_title(season, episode_number):
+    """Return the provider title of a season's episode, or None."""
+    # manual episodes have no titles of their own
+    if season.item.source == Sources.MANUAL.value:
+        return None
+
+    try:
+        season_metadata = services.get_media_metadata(
+            MediaTypes.SEASON.value,
+            season.item.media_id,
+            season.item.source,
+            [season.item.season_number],
+        )
+    except (services.ProviderAPIError, requests.exceptions.RequestException):
+        logger.warning("Could not fetch episode titles for %s", season)
+        return None
+
+    for episode in season_metadata.get("episodes", []):
+        if episode.get("episode_number") == episode_number:
+            return episode.get("name") or None
+    return None

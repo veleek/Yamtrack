@@ -98,7 +98,9 @@ def home(request):
 
     context = {
         "home_sections": home_sections,
-        "up_next": up_next[: home_helpers.UP_NEXT_LIMIT],
+        "up_next": home_helpers.add_up_next_episode_titles(
+            up_next[: home_helpers.UP_NEXT_LIMIT],
+        ),
         "up_next_total": len(up_next),
         "current_sort": sort_by,
         "sort_choices": HomeSortChoices.choices,
@@ -167,7 +169,9 @@ def progress_edit(request, media_type, instance_id):
 
 def _up_next_oob_context(user, season):
     """Return the context to refresh a show's Up next card out of band."""
-    entries = home_helpers.get_up_next(user, tv_ids={season.related_tv_id})
+    entries = home_helpers.add_up_next_episode_titles(
+        home_helpers.get_up_next(user, tv_ids={season.related_tv_id}),
+    )
     return {
         "entry": entries[0] if entries else None,
         "tv_id": season.related_tv_id,

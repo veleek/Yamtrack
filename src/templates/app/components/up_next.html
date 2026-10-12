@@ -20,9 +20,33 @@
     </div>
   </div>
 
-  <div class="scrollbar-hide flex snap-x gap-4 overflow-x-auto pb-1">
-    {% for entry in up_next %}
-      {% include "app/components/up_next_card.html" with entry=entry %}
-    {% endfor %}
+  <div class="relative"
+       x-data="{ canLeft: false, canRight: false, update() { const strip = this.$refs.strip; this.canLeft = strip.scrollLeft > 0; this.canRight = strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 1; }, scroll(direction) { this.$refs.strip.scrollBy({ left: direction * this.$refs.strip.clientWidth * 0.8, behavior: 'smooth' }); }, }"
+       x-init="$nextTick(() => update())"
+       @resize.window.debounce.100ms="update()"
+       @htmx:after-settle.window="$nextTick(() => update())">
+    <div x-ref="strip"
+         @scroll.debounce.50ms="update()"
+         class="scrollbar-hide flex snap-x gap-4 overflow-x-auto pb-1">
+      {% for entry in up_next %}
+        {% include "app/components/up_next_card.html" with entry=entry %}
+      {% endfor %}
+    </div>
+    <button type="button"
+            x-show="canLeft"
+            x-cloak
+            @click="scroll(-1)"
+            title="Scroll left"
+            class="absolute top-1/2 left-1 z-10 hidden h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-gray-700 bg-[#39404b]/95 text-white shadow-lg transition-colors hover:bg-[#454d5a] pointer-fine:flex">
+      {% include "app/icons/chevron-left.svg" with classes="h-5 w-5" %}
+    </button>
+    <button type="button"
+            x-show="canRight"
+            x-cloak
+            @click="scroll(1)"
+            title="Scroll right"
+            class="absolute top-1/2 right-1 z-10 hidden h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-gray-700 bg-[#39404b]/95 text-white shadow-lg transition-colors hover:bg-[#454d5a] pointer-fine:flex">
+      {% include "app/icons/chevron-right.svg" with classes="h-5 w-5" %}
+    </button>
   </div>
 </section>

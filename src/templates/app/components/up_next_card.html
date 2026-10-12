@@ -15,8 +15,11 @@
         <a href="{{ entry.season.item|media_url }}"
            class="line-clamp-1 text-sm font-semibold text-white transition duration-300 hover:text-indigo-400"
            title="{{ entry.season.item.title }}">{{ entry.season.item.title }}</a>
-        <p class="text-sm font-medium text-indigo-400">
-          S{{ entry.season.item.season_number|stringformat:"02d" }}E{{ entry.episode_number|stringformat:"02d" }}
+        <p class="flex min-w-0 items-baseline gap-1.5 text-sm">
+          <span class="shrink-0 font-medium text-indigo-400">S{{ entry.season.item.season_number|stringformat:"02d" }}E{{ entry.episode_number|stringformat:"02d" }}</span>
+          {% if entry.episode_title %}
+            <span class="truncate text-gray-300" title="{{ entry.episode_title }}">{{ entry.episode_title }}</span>
+          {% endif %}
         </p>
         <p class="truncate text-xs text-gray-400">
           {% if entry.air_date %}Aired {{ entry.air_date|date:user.date_format }}{% endif %}

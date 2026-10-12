@@ -15,6 +15,7 @@ from app.models import (
     Sources,
     Status,
 )
+from app.providers import services
 from events.models import Event, SentinelDatetime
 
 EPISODE_COUNT = 10
@@ -28,7 +29,10 @@ def mock_get_media_metadata(
     _episode_number=None,
 ):
     """Return metadata for a show whose seasons have ten episodes each."""
-    episodes = [{"episode_number": i} for i in range(1, EPISODE_COUNT + 1)]
+    episodes = [
+        {"episode_number": i, "name": f"Chapter {i}"}
+        for i in range(1, EPISODE_COUNT + 1)
+    ]
     season_number = season_numbers[0] if season_numbers else 1
 
     if media_type == "tv_with_seasons":
@@ -58,7 +62,7 @@ class UpNextTestMixin:
             "app.providers.services.get_media_metadata",
             side_effect=mock_get_media_metadata,
         )
-        metadata_patcher.start()
+        self.mock_get_media_metadata = metadata_patcher.start()
         self.addCleanup(metadata_patcher.stop)
 
         releases_patcher = patch.object(Item, "fetch_releases")
@@ -254,6 +258,59 @@ class GetUpNextTests(UpNextTestMixin, TestCase):
         self.assertEqual(home_helpers.get_up_next(self.user), [])
 
 
+class UpNextEpisodeTitleTests(UpNextTestMixin, TestCase):
+    """Test adding episode titles to Up next entries."""
+
+    def test_adds_episode_title(self):
+        """Entries get the provider's title for the up next episode."""
+        self.create_season(self.create_tv("1"), watched=2, released=5)
+
+        entries = home_helpers.add_up_next_episode_titles(
+            home_helpers.get_up_next(self.user),
+        )
+
+        self.assertEqual(entries[0]["episode_title"], "Chapter 3")
+
+    def test_provider_error_hides_title(self):
+        """A provider failure leaves the entry without a title."""
+        self.create_season(self.create_tv("1"), watched=2, released=5)
+        self.mock_get_media_metadata.side_effect = services.ProviderAPIError(
+            Sources.TMDB.value,
+            error=None,
+        )
+
+        entries = home_helpers.add_up_next_episode_titles(
+            home_helpers.get_up_next(self.user),
+        )
+
+        self.assertIsNone(entries[0]["episode_title"])
+
+    def test_missing_episode_hides_title(self):
+        """An episode missing from the metadata has no title."""
+        self.create_season(self.create_tv("1"), watched=2, released=5)
+        self.mock_get_media_metadata.side_effect = None
+        self.mock_get_media_metadata.return_value = {"episodes": []}
+
+        entries = home_helpers.add_up_next_episode_titles(
+            home_helpers.get_up_next(self.user),
+        )
+
+        self.assertIsNone(entries[0]["episode_title"])
+
+    def test_manual_season_has_no_title(self):
+        """Manual seasons skip the metadata lookup."""
+        season = self.create_season(self.create_tv("1"), watched=2, released=5)
+        Item.objects.filter(id=season.item_id).update(source=Sources.MANUAL.value)
+        self.mock_get_media_metadata.reset_mock()
+
+        entries = home_helpers.add_up_next_episode_titles(
+            home_helpers.get_up_next(self.user),
+        )
+
+        self.assertIsNone(entries[0]["episode_title"])
+        self.mock_get_media_metadata.assert_not_called()
+
+
 class UpNextViewTests(UpNextTestMixin, TestCase):
     """Test the Up next strip on the home page and its watch action."""
 
@@ -270,6 +327,7 @@ class UpNextViewTests(UpNextTestMixin, TestCase):
         self.assertContains(response, "Up next")
         self.assertContains(response, f'id="up-next-tv-{tv.id}"')
         self.assertContains(response, "S01E04")
+        self.assertContains(response, "Chapter 4")
 
     def test_home_without_up_next(self):
         """The strip is omitted when nothing is up next."""
@@ -310,6 +368,7 @@ class UpNextViewTests(UpNextTestMixin, TestCase):
         self.assertEqual(response.context["entry"]["episode_number"], 5)
         self.assertContains(response, f'id="up-next-tv-{tv.id}"')
         self.assertContains(response, "S01E05")
+        self.assertContains(response, "Chapter 5")
         # the season card in the in-progress grid is refreshed out of band
         self.assertContains(response, f'id="progress-season-{season.id}"')
         self.assertContains(response, 'hx-swap-oob="innerHTML"')
