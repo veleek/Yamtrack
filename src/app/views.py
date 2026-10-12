@@ -94,8 +94,12 @@ def home(request):
         for section_key in (Status.IN_PROGRESS.value, Status.PLANNING.value)
     ]
 
+    up_next = home_helpers.get_up_next(request.user)
+
     context = {
         "home_sections": home_sections,
+        "up_next": up_next[: home_helpers.UP_NEXT_LIMIT],
+        "up_next_total": len(up_next),
         "current_sort": sort_by,
         "sort_choices": HomeSortChoices.choices,
         "hide_unreleased": hide_unreleased,
@@ -151,11 +155,59 @@ def progress_edit(request, media_type, instance_id):
         "media": media,
         "home_status": home_status,
     }
+    if media_type == MediaTypes.SEASON.value:
+        context["up_next_oob"] = _up_next_oob_context(request.user, media)
+
     return render(
         request,
         "app/components/progress_changer.html",
         context,
     )
+
+
+def _up_next_oob_context(user, season):
+    """Return the context to refresh a show's Up next card out of band."""
+    entries = home_helpers.get_up_next(user, tv_ids={season.related_tv_id})
+    return {
+        "entry": entries[0] if entries else None,
+        "tv_id": season.related_tv_id,
+    }
+
+
+@require_POST
+def up_next_watch(request, season_id):
+    """Mark the next episode from the home Up next strip as watched."""
+    season = get_object_or_404(
+        Season.objects.select_related("item", "related_tv"),
+        id=season_id,
+        user=request.user,
+    )
+    try:
+        episode_number = int(request.POST["episode_number"])
+    except (KeyError, ValueError):
+        return HttpResponseBadRequest("Invalid episode number")
+
+    season.watch(episode_number, timezone.now().replace(second=0, microsecond=0))
+
+    # refresh the season card in the in progress grid if it is on the page
+    season = (
+        Season.objects.select_related("item")
+        .prefetch_related(
+            Prefetch("episodes", queryset=Episode.objects.select_related("item")),
+            Prefetch(
+                "item__event_set",
+                queryset=Event.objects.all(),
+                to_attr="prefetched_events",
+            ),
+        )
+        .get(id=season.id)
+    )
+    BasicMedia.objects.annotate_max_progress([season], MediaTypes.SEASON.value)
+    BasicMedia.objects._annotate_next_event([season])
+
+    context = _up_next_oob_context(request.user, season)
+    context["media"] = season
+    return render(request, "app/components/up_next_watch.html", context)
 
 
 @login_not_required

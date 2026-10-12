@@ -1,0 +1,28 @@
+{% load app_tags %}
+
+<section class="space-y-5 [&:not(:has(.up-next-card))]:hidden">
+  <div class="space-y-4">
+    <div class="flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#39404b] text-indigo-400">
+          {% include "app/icons/right-arrow.svg" with classes="h-5 w-5" %}
+        </div>
+        <h2 class="text-2xl font-semibold text-white">Up next</h2>
+      </div>
+      <span class="inline-flex items-center gap-2 rounded-full border border-gray-700 bg-[#39404b] px-3 py-1 text-sm text-gray-300">
+        {% include "app/icons/eye.svg" with classes="h-4 w-4 text-indigo-400" %}
+        {{ up_next_total }} show{{ up_next_total|pluralize }}
+      </span>
+    </div>
+    <div class="relative h-px overflow-hidden rounded-full bg-gray-700/80">
+      <div class="absolute inset-y-0 left-0 w-full bg-linear-to-r from-indigo-400 via-indigo-400/45 to-indigo-400/8"></div>
+      <div class="absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-indigo-400"></div>
+    </div>
+  </div>
+
+  <div class="scrollbar-hide flex snap-x gap-4 overflow-x-auto pb-1">
+    {% for entry in up_next %}
+      {% include "app/components/up_next_card.html" with entry=entry %}
+    {% endfor %}
+  </div>
+</section>

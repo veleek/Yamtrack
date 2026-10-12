@@ -754,6 +754,9 @@
   .w-64 {
     width: calc(var(--spacing) * 64);
   }
+  .w-72 {
+    width: calc(var(--spacing) * 72);
+  }
   .w-85 {
     width: calc(var(--spacing) * 85);
   }
@@ -894,6 +897,12 @@
   }
   .resize-none {
     resize: none;
+  }
+  .snap-x {
+    scroll-snap-type: x var(--tw-scroll-snap-strictness);
+  }
+  .snap-start {
+    scroll-snap-align: start;
   }
   .list-inside {
     list-style-position: inside;
@@ -1721,6 +1730,9 @@
   }
   .pr-12 {
     padding-right: calc(var(--spacing) * 12);
+  }
+  .pb-1 {
+    padding-bottom: calc(var(--spacing) * 1);
   }
   .pb-3 {
     padding-bottom: calc(var(--spacing) * 3);
@@ -3011,6 +3023,11 @@
       appearance: none;
     }
   }
+  .\[\&\:not\(\:has\(\.up-next-card\)\)\]\:hidden {
+    &:not(:has(.up-next-card)) {
+      display: none;
+    }
+  }
 }
 [x-cloak] {
   display: none !important;
@@ -3343,6 +3360,11 @@
   syntax: "*";
   inherits: false;
 }
+@property --tw-scroll-snap-strictness {
+  syntax: "*";
+  inherits: false;
+  initial-value: proximity;
+}
 @property --tw-space-y-reverse {
   syntax: "*";
   inherits: false;
@@ -3567,6 +3589,7 @@
       --tw-rotate-z: initial;
       --tw-skew-x: initial;
       --tw-skew-y: initial;
+      --tw-scroll-snap-strictness: proximity;
       --tw-space-y-reverse: 0;
       --tw-space-x-reverse: 0;
       --tw-divide-y-reverse: 0;

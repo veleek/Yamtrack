@@ -1,6 +1,10 @@
+from django.utils import timezone
 from django.utils.text import slugify
 
-from app.models import BasicMedia, Status
+from app.models import BasicMedia, MediaTypes, Status
+from events.models import SentinelDatetime
+
+UP_NEXT_LIMIT = 12
 
 
 def build_home_section(key, media_types):
@@ -91,3 +95,73 @@ def _is_released_home_media(media, section_key):
         return is_active_in_progress_media(media)
 
     return not _is_incoming_media(media)
+
+
+def get_up_next(user, tv_ids=None):
+    """Return the next released, unwatched episode for each in-progress TV show.
+
+    Episode availability comes from the season's release events, so building the
+    strip never calls a metadata provider. Seasons without released episodes
+    left to watch are skipped. When a show has several in-progress seasons, the
+    lowest season number wins.
+    """
+    if MediaTypes.SEASON.value not in user.get_active_media_types():
+        return []
+
+    seasons = BasicMedia.objects.get_media_list(
+        user=user,
+        media_type=MediaTypes.SEASON.value,
+        status_filter=Status.IN_PROGRESS.value,
+        sort_filter=None,
+    )
+    if tv_ids is not None:
+        seasons = [season for season in seasons if season.related_tv_id in tv_ids]
+
+    now = timezone.now()
+    min_datetime = SentinelDatetime.min_datetime()
+    entries_by_tv = {}
+    for season in seasons:
+        entry = _build_up_next_entry(season, now, min_datetime)
+        if entry is None:
+            continue
+
+        current = entries_by_tv.get(season.related_tv_id)
+        if (
+            current is None
+            or season.item.season_number < current["season"].item.season_number
+        ):
+            entries_by_tv[season.related_tv_id] = entry
+
+    return sorted(
+        entries_by_tv.values(),
+        key=lambda entry: (
+            -(entry["season"].progressed_at or entry["season"].created_at).timestamp(),
+            entry["season"].item.title.lower(),
+        ),
+    )
+
+
+def _build_up_next_entry(season, now, min_datetime):
+    """Return the up next entry for a season, or None when caught up."""
+    progress = season.progress
+    released = {}
+    for event in getattr(season.item, "prefetched_events", []):
+        if (
+            event.content_number is not None
+            and event.content_number > progress
+            and event.datetime <= now
+        ):
+            released[event.content_number] = event.datetime
+
+    if not released:
+        return None
+
+    episode_number = min(released)
+    air_date = released[episode_number]
+    return {
+        "season": season,
+        "tv_id": season.related_tv_id,
+        "episode_number": episode_number,
+        "air_date": None if air_date <= min_datetime else air_date,
+        "remaining": len(released),
+    }
