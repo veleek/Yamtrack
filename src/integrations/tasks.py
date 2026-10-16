@@ -25,10 +25,20 @@ logger = logging.getLogger(__name__)
 ERROR_TITLE = "\n\n\n Couldn't import the following media: \n\n"
 
 
+# Non-media counts reported by importers, as (singular, plural) labels
+COUNT_LABELS = {
+    "lists": ("list", "lists"),
+    "list_items": ("list item", "list items"),
+}
+
+
 def format_media_type_display(count, media_type):
     """Format media type display with proper pluralization."""
     if count == 0:
         return None
+    if media_type in COUNT_LABELS:
+        singular, plural = COUNT_LABELS[media_type]
+        return f"{count} {singular if count == 1 else plural}"
     if count == 1:
         return f"{count} {dict(MediaTypes.choices).get(media_type, media_type)}"
     return f"{count} {app_tags.media_type_readable_plural(media_type)}"

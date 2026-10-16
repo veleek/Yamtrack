@@ -1,10 +1,13 @@
+import csv
 import logging
 from collections import defaultdict
 from csv import DictReader
-from io import StringIO
+from io import BytesIO, StringIO
 
 from django.apps import apps
 from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.utils.dateparse import parse_datetime
 
 import app
@@ -14,13 +17,29 @@ from app.providers import services
 from app.templatetags import app_tags
 from integrations.imports import helpers
 from integrations.imports.helpers import MediaImportError, MediaImportUnexpectedError
+from lists.models import CustomList, CustomListItem
 
 logger = logging.getLogger(__name__)
 
 
 def importer(file, user, mode):
-    """Import media from CSV file using the class-based importer."""
-    csv_importer = YamtrackImporter(file, user, mode)
+    """Import a Yamtrack media or lists CSV export.
+
+    The lists export is recognised by its header, so both files can be
+    uploaded through the same Yamtrack import form.
+    """
+    content = file.read()
+    try:
+        first_line = content.decode("utf-8").partition("\n")[0]
+    except UnicodeDecodeError as e:
+        msg = "Invalid file format. Please upload a CSV file."
+        raise MediaImportError(msg) from e
+
+    header = next(csv.reader([first_line]), [])
+    if "list_name" in header:
+        return YamtrackListImporter(BytesIO(content), user, mode).import_data()
+
+    csv_importer = YamtrackImporter(BytesIO(content), user, mode)
     return csv_importer.import_data()
 
 
@@ -165,7 +184,8 @@ class YamtrackImporter:
             self.warnings.append(error_msg)
             logger.error(error_msg)
 
-    def _handle_missing_metadata(self, row, media_type, season_number, episode_number):
+    @staticmethod
+    def _handle_missing_metadata(row, media_type, season_number, episode_number):
         """Handle missing metadata by fetching from provider."""
         if row["source"] == Sources.MANUAL.value and row["image"] == "":
             row["image"] = settings.IMG_NONE
@@ -208,3 +228,162 @@ class YamtrackImporter:
 
         msg = f"Missing metadata for: {row}"
         raise MediaImportError(msg)
+
+
+class YamtrackListImporter:
+    """Restore custom lists from a Yamtrack lists CSV export.
+
+    Lists are matched by name. A list the user collaborated on is matched to
+    the existing shared list when it is still there (same name and owner);
+    otherwise it is recreated as a list owned by the importing user.
+    Collaborators, and the original owner of a shared list, are added only
+    when a user with that username exists.
+    """
+
+    def __init__(self, file, user, mode):
+        """Initialize the importer with file, user, and mode."""
+        self.file = file
+        self.user = user
+        self.mode = mode
+        self.warnings = []
+        self.lists = {}
+        self.owned_lists = {}
+        self.created_lists = 0
+        self.added_items = 0
+
+    def import_data(self):
+        """Import all lists from the CSV file."""
+        decoded_file = self.file.read().decode("utf-8")
+        reader = DictReader(StringIO(decoded_file, newline=""))
+
+        with transaction.atomic():
+            for row in reader:
+                try:
+                    self._process_row(row)
+                except (services.ProviderAPIError, MediaImportError) as error:
+                    self.warnings.append(
+                        f"{row.get('title') or row.get('media_id')} "
+                        f"(list {row['list_name']}): {error}",
+                    )
+                except Exception as error:
+                    error_msg = f"Error processing list entry: {row}"
+                    raise MediaImportUnexpectedError(error_msg) from error
+
+        imported_counts = {"lists": self.created_lists, "list_items": self.added_items}
+        deduplicated_messages = "\n".join(dict.fromkeys(self.warnings))
+        return imported_counts, deduplicated_messages
+
+    def _process_row(self, row):
+        """Process a single list entry row."""
+        custom_list = self._get_list(row)
+
+        if row["media_id"] == "" and row["title"] == "":
+            return  # row for an empty list
+
+        item = self._get_item(row)
+        list_item, created = CustomListItem.objects.get_or_create(
+            item=item,
+            custom_list=custom_list,
+        )
+        if not created:
+            return
+
+        # date_added is auto_now_add, so restore the original date afterwards
+        date_added = parse_datetime(row["date_added"]) if row["date_added"] else None
+        if date_added:
+            CustomListItem.objects.filter(pk=list_item.pk).update(
+                date_added=date_added,
+            )
+        self.added_items += 1
+
+    def _get_list(self, row):
+        """Return the target list for a row, creating it on first use."""
+        key = (row["list_owner"], row["list_name"])
+        if key in self.lists:
+            return self.lists[key]
+
+        custom_list = None
+        if row["list_owner"] != self.user.username:
+            # Still shared with this user? Then add to the original list.
+            custom_list = CustomList.objects.filter(
+                name=row["list_name"],
+                owner__username=row["list_owner"],
+                collaborators=self.user,
+            ).first()
+
+        if custom_list is None:
+            custom_list = self._get_owned_list(row)
+
+        self.lists[key] = custom_list
+        return custom_list
+
+    def _get_owned_list(self, row):
+        """Return or create a list owned by the importing user."""
+        if row["list_name"] in self.owned_lists:
+            return self.owned_lists[row["list_name"]]
+
+        custom_list = CustomList.objects.filter(
+            name=row["list_name"],
+            owner=self.user,
+        ).first()
+
+        if custom_list is None:
+            custom_list = CustomList.objects.create(
+                name=row["list_name"],
+                description=row["list_description"],
+                owner=self.user,
+            )
+            self.created_lists += 1
+        elif self.mode == "overwrite":
+            custom_list.description = row["list_description"]
+            custom_list.save(update_fields=["description"])
+            CustomListItem.objects.filter(custom_list=custom_list).delete()
+
+        usernames = {
+            username for username in row["list_collaborators"].split(",") if username
+        }
+        if row["list_role"] == "collaborator":
+            usernames.add(row["list_owner"])
+        usernames.discard(self.user.username)
+        collaborators = get_user_model().objects.filter(username__in=usernames)
+        custom_list.collaborators.add(*collaborators)
+
+        self.owned_lists[row["list_name"]] = custom_list
+        return custom_list
+
+    def _get_item(self, row):
+        """Return the Item for a row, fetching metadata if it is missing."""
+        media_type = row["media_type"]
+        season_number = (
+            int(row["season_number"]) if row["season_number"] != "" else None
+        )
+        episode_number = (
+            int(row["episode_number"]) if row["episode_number"] != "" else None
+        )
+        lookup = {
+            "media_id": row["media_id"],
+            "source": row["source"],
+            "media_type": media_type,
+            "season_number": season_number,
+            "episode_number": episode_number,
+        }
+
+        item = app.models.Item.objects.filter(**lookup).first()
+        if item is not None:
+            return item
+
+        if row["title"] == "" or row["image"] == "":
+            YamtrackImporter._handle_missing_metadata(
+                row,
+                media_type,
+                season_number,
+                episode_number,
+            )
+            lookup["media_id"] = row["media_id"]
+            lookup["source"] = row["source"]
+
+        item, _ = app.models.Item.objects.get_or_create(
+            **lookup,
+            defaults={"title": row["title"], "image": row["image"]},
+        )
+        return item
