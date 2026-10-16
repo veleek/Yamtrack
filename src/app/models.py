@@ -223,10 +223,24 @@ class MediaManager(models.Manager):
         """Return list of historical model names."""
         return [f"historical{media_type}" for media_type in MediaTypes.values]
 
-    def get_media_list(self, user, media_type, status_filter, sort_filter, search=None):
-        """Get media list based on filters, sorting and search."""
+    def get_media_list(
+        self,
+        user,
+        media_type,
+        status_filter,
+        sort_filter,
+        search=None,
+        items=None,
+    ):
+        """Get media list based on filters, sorting and search.
+
+        ``items`` optionally restricts the list to media of those Items.
+        """
         model = apps.get_model(app_label="app", model_name=media_type)
         queryset = model.objects.filter(user=user.id)
+
+        if items is not None:
+            queryset = queryset.filter(item__in=items)
 
         if status_filter != users.models.MediaStatusChoices.ALL:
             queryset = queryset.filter(status=status_filter)
@@ -419,8 +433,12 @@ class MediaManager(models.Manager):
         sort_by,
         items_limit=None,
         specific_media_type=None,
+        items=None,
     ):
-        """Get a home media list for a specific status grouped by media type."""
+        """Get a home media list for a specific status grouped by media type.
+
+        ``items`` optionally restricts the media to those Items, e.g. a list's.
+        """
         list_by_type = {}
         media_types = self._get_media_types_to_process(user, specific_media_type)
 
@@ -431,6 +449,7 @@ class MediaManager(models.Manager):
                 media_type=media_type,
                 status_filter=status,
                 sort_filter=None,
+                items=items,
             )
 
             if not media_list:

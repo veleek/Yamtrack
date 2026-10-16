@@ -1,5 +1,6 @@
 {% load static %}
 {% load app_tags %}
+{% load lists_tags %}
 
 <!DOCTYPE html>
 <html lang="en" class="scheme-dark bg-[#212529]">
@@ -173,6 +174,23 @@
                       <span>Lists</span>
                     </a>
                   </li>
+
+                  {% pinned_lists user as sidebar_pinned_lists %}
+                  {% for pinned_list in sidebar_pinned_lists %}
+                    {% url 'list_detail' pinned_list.id as pinned_list_url %}
+                    <li>
+                      <a href="{{ pinned_list_url }}"
+                         title="{{ pinned_list.name }}"
+                         class="flex items-center space-x-3 pl-8 pr-4 py-2 rounded-md transition-colors duration-200 text-sm {% if request.path == pinned_list_url %}text-white bg-[#2c3136]{% else %}text-gray-400 hover:text-white hover:bg-[#23272b]{% endif %}">
+                        {% if request.path|str_equals:pinned_list_url %}
+                          {% include "app/icons/pin.svg" with classes="w-4 h-4 shrink-0 text-indigo-400" %}
+                        {% else %}
+                          {% include "app/icons/pin.svg" with classes="w-4 h-4 shrink-0" %}
+                        {% endif %}
+                        <span class="truncate">{{ pinned_list.name }}</span>
+                      </a>
+                    </li>
+                  {% endfor %}
 
                   {% url 'calendar' as calendar_url %}
                   <li>

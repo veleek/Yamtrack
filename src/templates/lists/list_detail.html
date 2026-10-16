@@ -11,45 +11,9 @@
 {% endblock title %}
 
 {% block content %}
-  <div class="flex items-center justify-between mb-6"
-       x-data="{ showModal: false }">
-    <div>
-      <h1 class="text-3xl font-bold mb-2">{{ custom_list.name }}</h1>
-      <div class="flex items-center gap-4">
-        <div class="flex items-center">
-          <div class="flex -space-x-2 mr-2">
-            <div class="w-6 h-6 rounded-full bg-[#4f46e5] flex items-center justify-center border-2 border-[#2a2f35] text-xs font-medium"
-                 title="{{ custom_list.owner.username }}">{{ custom_list.owner.username.0|upper }}</div>
-            {% for collaborator in custom_list.collaborators.all %}
-              <div class="w-6 h-6 rounded-full bg-[#4b5563] flex items-center justify-center border-2 border-[#2a2f35] text-xs font-medium"
-                   title="{{ collaborator.username }}">{{ collaborator.username.0|upper }}</div>
-            {% endfor %}
-          </div>
-          <span class="text-sm text-gray-400">
-            {{ collaborators_count }} collaborator{{ collaborators_count|pluralize }}
-            <span class="mx-2">•</span>
-            {{ items_count }} item{{ items_count|pluralize }}
-          </span>
-        </div>
-      </div>
-    </div>
-    <button @click="showModal = true"
-            class="px-4 py-2 bg-[#39404b] hover:bg-[#454d5a] rounded-md transition-colors flex items-center gap-2 text-sm group cursor-pointer">
-      {% include "app/icons/horizontal-sliders.svg" with classes="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" %}
-      <span>Edit List</span>
-    </button>
-    {% include "lists/components/list_form.html" %}
-  </div>
+  {% include "lists/components/list_header.html" %}
 
-  <div x-data="{ sort: '{{ current_sort|escapejs }}', type: '{{ request.GET.type|default:'all'|escapejs }}', status: '{{ current_status|escapejs }}', query: '{{ request.GET.q|default:''|escapejs }}', mediaTypeLabels: {
-    {% for media_type in media_types %}'{{ media_type }}': '{{ media_type|media_type_readable_plural }}',{% endfor %}
-    'all': 'All Types' }, statusLabels: {
-    {% for value, label in status_choices %}
-      '{{ value }}': '{{ label }}'
-      {% if not forloop.last %},{% endif %}
-
-    {% endfor %}
-    }, getMediaTypeLabel() { return this.mediaTypeLabels[this.type] || this.type; } }">
+  <div x-data="{ sort: '{{ current_sort|escapejs }}', type: '{{ request.GET.type|default:'all'|escapejs }}', status: '{{ current_status|escapejs }}', query: '{{ request.GET.q|default:''|escapejs }}', mediaTypeLabels: { {% for media_type in media_types %}'{{ media_type }}': '{{ media_type|media_type_readable_plural }}',{% endfor %} 'all': 'All Types' }, statusLabels: { {% for value, label in status_choices %} '{{ value }}': '{{ label }}' {% if not forloop.last %},{% endif %}  {% endfor %} }, getMediaTypeLabel() { return this.mediaTypeLabels[this.type] || this.type; } }">
 
     <!-- Form to manage state -->
     <form id="filter-form" class="hidden">
@@ -57,6 +21,7 @@
       <input type="hidden" name="type" x-model="type">
       <input type="hidden" name="status" x-model="status">
       <input type="hidden" name="q" x-model="query">
+      {% if custom_list.tracker_view %}<input type="hidden" name="view" value="items">{% endif %}
     </form>
 
     <div class="flex flex-col sm:flex-row gap-4 mb-8">

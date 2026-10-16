@@ -1,0 +1,57 @@
+{% load app_tags %}
+
+<div class="flex flex-wrap items-center justify-between gap-4 mb-6"
+     x-data="{ showModal: false }">
+  <div>
+    <h1 class="text-3xl font-bold mb-2">{{ custom_list.name }}</h1>
+    <div class="flex items-center gap-4">
+      <div class="flex items-center">
+        <div class="flex -space-x-2 mr-2">
+          <div class="w-6 h-6 rounded-full bg-[#4f46e5] flex items-center justify-center border-2 border-[#2a2f35] text-xs font-medium"
+               title="{{ custom_list.owner.username }}">{{ custom_list.owner.username.0|upper }}</div>
+          {% for collaborator in custom_list.collaborators.all %}
+            <div class="w-6 h-6 rounded-full bg-[#4b5563] flex items-center justify-center border-2 border-[#2a2f35] text-xs font-medium"
+                 title="{{ collaborator.username }}">{{ collaborator.username.0|upper }}</div>
+          {% endfor %}
+        </div>
+        <span class="text-sm text-gray-400">
+          {{ collaborators_count }} collaborator{{ collaborators_count|pluralize }}
+          <span class="mx-2">•</span>
+          {{ items_count }} item{{ items_count|pluralize }}
+        </span>
+      </div>
+    </div>
+  </div>
+  <div class="flex flex-wrap items-center justify-end gap-2">
+    {% if custom_list.tracker_view %}
+      <div class="flex overflow-hidden rounded-md border border-gray-700 text-sm">
+        <a href="{% url 'list_detail' custom_list.id %}"
+           class="flex items-center gap-2 px-3 py-2 transition-colors {% if current_view == 'tracker' %}bg-indigo-600 text-white{% else %}bg-[#39404b] text-gray-300 hover:bg-[#454d5a] hover:text-white{% endif %}">
+          {% include "app/icons/pulse.svg" with classes="w-4 h-4" %}
+          <span>Tracker</span>
+        </a>
+        <a href="{% url 'list_detail' custom_list.id %}?view=items"
+           class="flex items-center gap-2 px-3 py-2 transition-colors {% if current_view == 'items' %}bg-indigo-600 text-white{% else %}bg-[#39404b] text-gray-300 hover:bg-[#454d5a] hover:text-white{% endif %}">
+          {% include "app/icons/grid.svg" with classes="w-4 h-4" %}
+          <span>All items</span>
+        </a>
+      </div>
+    {% endif %}
+    <form method="post"
+          action="{% url 'list_pin_toggle' custom_list.id %}?next={{ request.get_full_path|urlencode }}">
+      {% csrf_token %}
+      <button type="submit"
+              title="{% if is_pinned %}Unpin from sidebar{% else %}Pin to sidebar{% endif %}"
+              class="px-4 py-2 rounded-md transition-colors flex items-center gap-2 text-sm group cursor-pointer {% if is_pinned %}bg-indigo-600 hover:bg-indigo-700 text-white{% else %}bg-[#39404b] hover:bg-[#454d5a]{% endif %}">
+        {% include "app/icons/pin.svg" with classes="w-4 h-4" %}
+        <span>{% if is_pinned %}Pinned{% else %}Pin{% endif %}</span>
+      </button>
+    </form>
+    <button @click="showModal = true"
+            class="px-4 py-2 bg-[#39404b] hover:bg-[#454d5a] rounded-md transition-colors flex items-center gap-2 text-sm group cursor-pointer">
+      {% include "app/icons/horizontal-sliders.svg" with classes="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" %}
+      <span>Edit List</span>
+    </button>
+  </div>
+  {% include "lists/components/list_form.html" %}
+</div>
