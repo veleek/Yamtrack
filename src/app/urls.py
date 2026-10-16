@@ -50,6 +50,11 @@ urlpatterns = [
         views.progress_edit,
         name="progress_edit",
     ),
+    path(
+        "up_next/<int:season_id>/watch",
+        views.up_next_watch,
+        name="up_next_watch",
+    ),
     path("media_save", views.media_save, name="media_save"),
     path("media_delete", views.media_delete, name="media_delete"),
     path(
