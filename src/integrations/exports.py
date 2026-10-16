@@ -2,10 +2,11 @@ import csv
 import logging
 
 from django.apps import apps
-from django.db.models import Field, Prefetch
+from django.db.models import Field, Prefetch, Q
 
 from app import helpers
 from app.models import Episode, Item, MediaTypes, Season
+from lists.models import CustomList, CustomListItem
 
 logger = logging.getLogger(__name__)
 
@@ -119,3 +120,81 @@ def get_track_fields():
             all_fields.append(timestamp_field)
 
     return list(all_fields)
+
+
+LIST_FIELDS = [
+    "list_name",
+    "list_description",
+    "list_owner",
+    "list_role",
+    "list_collaborators",
+    "media_id",
+    "source",
+    "media_type",
+    "title",
+    "image",
+    "season_number",
+    "episode_number",
+    "date_added",
+]
+
+
+def generate_list_rows(user):
+    """Generate CSV rows for the custom lists the user owns or collaborates on.
+
+    Each row is one list entry. Lists with no items get a single row with
+    empty item columns so they can still be restored.
+    """
+    pseudo_buffer = Echo()
+    writer = csv.writer(pseudo_buffer, quoting=csv.QUOTE_ALL)
+
+    yield writer.writerow(LIST_FIELDS)
+
+    custom_lists = (
+        CustomList.objects.filter(Q(owner=user) | Q(collaborators=user))
+        .select_related("owner")
+        .prefetch_related(
+            "collaborators",
+            Prefetch(
+                "customlistitem_set",
+                queryset=CustomListItem.objects.select_related("item").order_by(
+                    "date_added",
+                ),
+            ),
+        )
+        .distinct()
+        .order_by("name", "id")
+    )
+
+    for custom_list in custom_lists:
+        collaborators = sorted(
+            collaborator.username for collaborator in custom_list.collaborators.all()
+        )
+        list_columns = [
+            custom_list.name,
+            custom_list.description,
+            custom_list.owner.username,
+            "owner" if custom_list.owner_id == user.id else "collaborator",
+            ",".join(collaborators),
+        ]
+
+        list_items = custom_list.customlistitem_set.all()
+        if not list_items:
+            yield writer.writerow(list_columns + [""] * 8)
+            continue
+
+        for list_item in list_items:
+            item = list_item.item
+            yield writer.writerow(
+                [
+                    *list_columns,
+                    item.media_id,
+                    item.source,
+                    item.media_type,
+                    item.title,
+                    item.image,
+                    "" if item.season_number is None else item.season_number,
+                    "" if item.episode_number is None else item.episode_number,
+                    list_item.date_added.isoformat(),
+                ],
+            )

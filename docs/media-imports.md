@@ -103,3 +103,19 @@ The order of rows matters for TV data: import `tv` rows first, then `season` row
 | start_date     | No        | 2023-01-16 03:56:13+00:00                      | Full ISO-8601 **timestamp with timezone** `YYYY-MM-DD HH:MM:SS±HH:MM`.                                                                                                          |
 | end_date       | No        | 2023-02-10 22:15:00+00:00                      | Same format as `start_date`.                                                                                                                                                    |
 | progress       | No        | 10                                             | Numeric progress (e.g., chapters, pages, minutes). Ignored for tv and season because progress is tracked with episode rows.                                                     |
+
+## Yamtrack lists CSV format
+
+The lists export (**Settings → Export → Export lists as CSV**) is a separate file. Upload it through the same Yamtrack CSV import; the importer recognises it by its `list_name` column. Every row is one list entry, and a list with no entries gets one row with blank item columns.
+
+| Column Title       | Example Value             | Notes                                                                                                 |
+| ------------------ | ------------------------- | ----------------------------------------------------------------------------------------------------- |
+| list_name          | Favorites                 | Lists are matched by name.                                                                            |
+| list_description   | Best of the best          | Set when the list is created, or replaced in overwrite mode.                                          |
+| list_owner         | alice                     | Username of the list's owner when exported.                                                           |
+| list_role          | collaborator              | `owner` or `collaborator`: your role on the list when exported.                                       |
+| list_collaborators | ben,carol                 | Comma-separated usernames. Only users that exist on the importing instance are added.                 |
+| media_id, source, media_type, title, image, season_number, episode_number | | Same meaning as in the media CSV. Missing title or image is fetched from the provider. |
+| date_added         | 2024-01-02T03:04:00+00:00 | When the entry was added to the list.                                                                 |
+
+On import, a list you collaborated on is added to the original shared list if it still exists and is still shared with you. Otherwise it is recreated as a list you own, with the original owner added as a collaborator when that user exists. In overwrite mode, entries of matching lists you own are replaced; in new mode, only missing entries are added.

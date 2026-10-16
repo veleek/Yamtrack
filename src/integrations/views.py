@@ -497,6 +497,21 @@ def export_csv(request):
     return response
 
 
+@require_GET
+def export_lists_csv(request):
+    """View for exporting the user's custom lists to a CSV file."""
+    now = timezone.localtime()
+    response = StreamingHttpResponse(
+        streaming_content=exports.generate_list_rows(request.user),
+        content_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="yamtrack_lists_{now}.csv"',
+        },
+    )
+    logger.info("User %s started lists CSV export", request.user.username)
+    return response
+
+
 @login_not_required
 @csrf_exempt
 @require_POST
