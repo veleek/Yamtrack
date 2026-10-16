@@ -11,12 +11,22 @@
       <h2 class="text-xl font-semibold">Export Data</h2>
     </div>
     <p class="text-gray-400 mb-5 text-sm">Back up your data or export it for use with other services.</p>
-    <p class="text-sm text-gray-400 mb-4">Your export will include all your media items.</p>
-    <form method="get" action="{% url 'export_csv' %}">
-      {% csrf_token %}
-      <button class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors text-sm cursor-pointer">
-        Export as CSV
-      </button>
-    </form>
+    <p class="text-sm text-gray-400 mb-4">
+      The media export includes all your tracked media. Lists you own or collaborate on are exported separately; both files can be restored with the Yamtrack importer.
+    </p>
+    <div class="flex flex-wrap gap-3">
+      <form method="get" action="{% url 'export_csv' %}">
+        {% csrf_token %}
+        <button class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors text-sm cursor-pointer">
+          Export media as CSV
+        </button>
+      </form>
+      <form method="get" action="{% url 'export_lists_csv' %}">
+        {% csrf_token %}
+        <button class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors text-sm cursor-pointer">
+          Export lists as CSV
+        </button>
+      </form>
+    </div>
   </div>
 {% endblock settings_content %}

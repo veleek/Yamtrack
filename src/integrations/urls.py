@@ -36,6 +36,7 @@ urlpatterns = [
     path("import/imdb", views.import_imdb, name="import_imdb"),
     path("import/goodreads", views.import_goodreads, name="import_goodreads"),
     path("export/csv", views.export_csv, name="export_csv"),
+    path("export/lists-csv", views.export_lists_csv, name="export_lists_csv"),
     path(
         "webhook/jellyfin/<str:token>",
         views.jellyfin_webhook,
